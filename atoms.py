@@ -55,13 +55,24 @@ def atom_number(cavity_volume, temperature = 300 * si.kelvin):
 
 def single_atom_g(Ezpf, dipole_matrix_element):
     # single atom coupling rate
-    return (dipole_matrix_element * Ezpf) / hbar
+    return ((dipole_matrix_element * Ezpf) / hbar).to(si.hertz)
 
-def estimate_collective_G(positions, u_func, g0, pump_fraction):
-    # collective coupling rate based on optical simulations
-    u = u_func(positions)
-    gi = g0 * u
-    G2 = np.sum((gi**2) * pump_fraction)
-    return np.sqrt(G2), gi, u
+def estimate_collective_G_from_E(positions, Ezpf, dipole_matrix_element, pump_fraction):
+    """
+    Ezpf(positions) -> either:
+      - (N,) array of V/m along dipole direction, or
+      - (N,3) array (V/m) and we project with e_d.
+    mu: dipole [C·m]
+    """
+    E = Ezpf(positions)  # V/m
+    if E.ndim == 2:
+        e = np.asarray(e_d if e_d is not None else [1,0,0], float)
+        e /= np.linalg.norm(e)
+        Edot = np.abs(E @ e)
+    else:
+        Edot = np.abs(E)
 
+    gi = (dipole_matrix_element * Edot) / hbar        # 1/s
+    G2 = np.sum((gi**2) * pump_fraction)  # 1/s^2
+    return np.sqrt(G2), gi, Edot
     
